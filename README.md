@@ -1,7 +1,14 @@
-# Vendetta Plugins Template
-This repo contains a template for creating [Vendetta](https://github.com/vendetta-mod/Vendetta) plugins.
+# Vendetta Plugins
+This repo contains plugins for [Vendetta](https://github.com/vendetta-mod/Vendetta).
 
 # How to install?
 Paste a plugin URL into the Plugins page of Vendetta, following a basic format of:
 
 https://`YOUR_GITHUB_USERNAME`.github.io/`REPO_NAME`/`PLUGIN_NAME`
+
+
+## Plugin List
+Last Speak
+```
+https://han22-811422.github.io/Vendetta-Plugins/last-speak
+```
