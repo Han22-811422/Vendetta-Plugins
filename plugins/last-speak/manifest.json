@@ -1,0 +1,14 @@
+{
+    "name": "Last Speak",
+    "description": "A plugin for show timestamp last speak voice in DM.",
+    "authors": [
+        {
+            "name": "Hann",
+            "id": "301653417212903426"
+        }
+    ],
+    "main": "src/index.ts",
+    "vendetta": {
+        "icon": "ic_badge_staff"
+    }
+}
