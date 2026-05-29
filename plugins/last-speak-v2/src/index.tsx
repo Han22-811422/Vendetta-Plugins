@@ -1,62 +1,66 @@
 import { logger } from "@vendetta";
 import { patchAsyncComponent } from "@vendetta/ui/components";
-import { findByDisplayName } from "@vendetta/metro";
+import { findByDisplayName, findByName } from "@vendetta/metro";
 import Settings from "./Settings";
 
 export default {
     onLoad: async () => {
-        logger.log("Voice Panel plugin loading");
+        logger.log("VoicePanel plugin loading...");
         
         try {
-            // Find VoicePanelCard component
-            const VoicePanelCard = findByDisplayName("VoicePanelCard");
+            // Wait 10 seconds for Discord to fully load
+            logger.log("Waiting 10 seconds for Discord to load...");
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            
+            // Try to find the component by display name
+            const VoicePanelCard = await findByDisplayName("VoicePanelCard");
             
             if (!VoicePanelCard) {
-                logger.error("Could not find VoicePanelCard");
+                logger.warn("Could not find VoicePanelCard by display name");
                 return;
             }
 
-            logger.log("Found VoicePanelCard, patching...");
+            logger.log("Found VoicePanelCard, applying patch...");
 
-            // Patch the component
-            patchAsyncComponent(
+            // Use patchAsyncComponent for React components
+            const unpatch = await patchAsyncComponent(
                 VoicePanelCard,
-                (Component) => {
-                    return (props) => {
-                        const original = Component(props);
-                        
-                        // Inject text above existing content
-                        if (original?.props?.children) {
-                            const customContent = {
-                                type: "Text",
-                                props: {
-                                    children: "In Voice Chat",
-                                    size: 12,
-                                    color: "white",
-                                    style: { marginBottom: 8 }
-                                }
-                            };
-                            
-                            const currentChildren = Array.isArray(original.props.children)
-                                ? original.props.children
-                                : [original.props.children];
-                            
-                            original.props.children = [customContent, ...currentChildren];
+                (Component) => (props) => {
+                    const original = Component(props);
+                    
+                    // Wrap the component to inject text above username
+                    return {
+                        ...original,
+                        props: {
+                            ...original.props,
+                            // Add your text before existing children
+                            children: [
+                                {
+                                    type: "Text",
+                                    props: {
+                                        children: "Status: In Call",
+                                        variant: "text-sm/medium",
+                                        color: "text-positive",
+                                        style: { marginBottom: 4 }
+                                    }
+                                },
+                                ...(Array.isArray(original.props.children) 
+                                    ? original.props.children 
+                                    : [original.props.children])
+                            ]
                         }
-                        
-                        return original;
                     };
                 }
             );
 
-            logger.log("VoicePanelCard patched!");
+            logger.log("VoicePanelCard patched successfully!");
         } catch (error) {
-            logger.error("Patch error:", error);
+            logger.error("Error patching VoicePanelCard:", error?.toString());
         }
     },
 
     onUnload: () => {
-        logger.log("Plugin unloaded");
+        logger.log("VoicePanel plugin unloaded");
     },
 
     settings: Settings,
