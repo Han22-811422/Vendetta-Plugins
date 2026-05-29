@@ -1,6 +1,6 @@
-import { logger } from "@revenge-mod";
-import { patchAsyncComponent } from "@revenge-mod/ui/components";
-import { findByDisplayName, findByName } from "@revenge-mod/metro";
+import { logger } from "@vendetta";
+import { patchAsyncComponent } from "@vendetta/ui/components";
+import { findByDisplayName } from "@vendetta/metro";
 import Settings from "./Settings";
 
 export default {
@@ -8,44 +8,50 @@ export default {
         logger.log("Voice Panel plugin loading");
         
         try {
-            // Multiple ways to find the component - try them in order
-            let VoicePanelCard = await findByDisplayName("VoicePanelCard");
+            // Find VoicePanelCard component
+            const VoicePanelCard = findByDisplayName("VoicePanelCard");
             
-            if (!VoicePanelCard?.default) {
-                logger.log("Trying findByName...");
-                VoicePanelCard = await findByName("VoicePanelCard");
-            }
-
             if (!VoicePanelCard) {
-                logger.error("VoicePanelCard not found!");
+                logger.error("Could not find VoicePanelCard");
                 return;
             }
 
-            logger.log("Patching VoicePanelCard...");
+            logger.log("Found VoicePanelCard, patching...");
 
             // Patch the component
-            await patchAsyncComponent(VoicePanelCard, (Component) => {
-                return (props) => {
-                    const element = Component(props);
-                    
-                    // Add your custom element to the component tree
-                    if (element?.props?.children) {
-                        const { Text } = require("@revenge-mod/ui");
-                        element.props.children = [
-                            <Text size="sm" weight="500">
-                                Your Custom Text
-                            </Text>,
-                            element.props.children
-                        ];
-                    }
-                    
-                    return element;
-                };
-            });
+            patchAsyncComponent(
+                VoicePanelCard,
+                (Component) => {
+                    return (props) => {
+                        const original = Component(props);
+                        
+                        // Inject text above existing content
+                        if (original?.props?.children) {
+                            const customContent = {
+                                type: "Text",
+                                props: {
+                                    children: "In Voice Chat",
+                                    size: 12,
+                                    color: "white",
+                                    style: { marginBottom: 8 }
+                                }
+                            };
+                            
+                            const currentChildren = Array.isArray(original.props.children)
+                                ? original.props.children
+                                : [original.props.children];
+                            
+                            original.props.children = [customContent, ...currentChildren];
+                        }
+                        
+                        return original;
+                    };
+                }
+            );
 
-            logger.log("Patch applied!");
-        } catch (err) {
-            logger.error("Patch failed:", err);
+            logger.log("VoicePanelCard patched!");
+        } catch (error) {
+            logger.error("Patch error:", error);
         }
     },
 
