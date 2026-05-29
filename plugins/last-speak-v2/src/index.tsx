@@ -1,100 +1,85 @@
-import { logger } from "@vendetta";
-import { showToast } from "@vendetta/ui/toasts";
-import { patchAsyncComponent } from "@vendetta/ui/components";
-import { findByDisplayName, findByName } from "@vendetta/metro";
-import Settings from "./Settings";
+import { patcher } from '@revenge-mod/api'
+import { findByDisplayName } from '@revenge-mod/metro'
+import { showToast } from "@vendetta/ui/toasts"
 
-const PLUGIN_VERSION = "1.2";
+const PLUGIN_VERSION = "2.1"
+const unpatches = []
 
 export default {
     onLoad: async () => {
-        showToast(`🔧 Voice Panel Plugin v${PLUGIN_VERSION}`, 0);
-        logger.log(`Voice Panel Plugin v${PLUGIN_VERSION} loaded`);
+        showToast(`🔧 Voice Panel Plugin v${PLUGIN_VERSION}`, 0)
         
         try {
             // Wait 10 seconds for Discord to fully load
-            showToast("⏳ Waiting 10 seconds for Discord...", 1);
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            showToast("⏳ Waiting 10 seconds for Discord...", 1)
+            await new Promise(resolve => setTimeout(resolve, 10000))
             
-            showToast("🔍 Searching for component...", 1);
-            logger.log("Searching for voice panel components");
+            showToast("🔍 Searching for VoicePanelCard...", 1)
             
-            // Try to find VoicePanelCard
-            let targetComponent = findByDisplayName("VoicePanelCard") || findByName("VoicePanelCard");
-            let componentName = "VoicePanelCard";
+            // Find VoicePanelCard component
+            const VoicePanelCard = findByDisplayName("VoicePanelCard")
             
-            // Fallback to ParticipantCard
-            if (!targetComponent) {
-                targetComponent = findByDisplayName("ParticipantCard") || findByName("ParticipantCard");
-                componentName = "ParticipantCard";
-            }
-            
-            // Fallback to TransitionGroup or other wrapper
-            if (!targetComponent) {
-                targetComponent = findByDisplayName("TransitionGroup") || findByName("TransitionGroup");
-                componentName = "TransitionGroup";
-            }
-            
-            if (!targetComponent) {
-                showToast("❌ Could not find target component", 2);
-                logger.error("Target component not found");
-                return;
+            if (!VoicePanelCard) {
+                showToast("❌ VoicePanelCard not found", 2)
+                return
             }
 
-            showToast(`✅ Found ${componentName}! Patching...`, 1);
-            logger.log(`Found ${componentName}, applying patch`);
+            showToast("✅ Found VoicePanelCard! Patching...", 1)
 
-            // Patch the component with deep traversal
-            await patchAsyncComponent(
-                targetComponent,
-                (Component) => {
-                    return (props) => {
-                        const original = Component(props);
-                        
-                        // Recursively patch children to add text
-                        if (original?.props?.children) {
-                            const enhancedChildren = enhanceChildren(original.props.children);
-                            original.props.children = enhancedChildren;
+            // Patch using patcher.instead() - intercepts and replaces function
+            const unpatch = patcher.instead(
+                'default',
+                VoicePanelCard,
+                (args, originalFunc) => {
+                    // Call the original function
+                    const result = originalFunc.apply(this, args)
+                    
+                    // Inject custom text above username
+                    if (result?.props?.children) {
+                        const customText = {
+                            type: 'Text',
+                            props: {
+                                children: '📱 In Voice Chat',
+                                size: 12,
+                                color: '#00b0f4',
+                                style: { 
+                                    marginBottom: 8,
+                                    fontWeight: '600'
+                                }
+                            }
                         }
                         
-                        return original;
-                    };
+                        const children = Array.isArray(result.props.children)
+                            ? result.props.children
+                            : [result.props.children]
+                        
+                        result.props.children = [customText, ...children]
+                    }
+                    
+                    return result
                 }
-            );
+            )
+            
+            unpatches.push(unpatch)
+            showToast("✨ VoicePanelCard patched successfully!", 1)
 
-            showToast("✨ Patch applied successfully!", 1);
-            logger.log("Patch applied successfully");
         } catch (error) {
-            showToast("❌ Error: " + error?.toString(), 2);
-            logger.error("Patch error:", error);
+            showToast("❌ Error: " + error?.toString(), 2)
+            console.error("Plugin error:", error)
         }
     },
 
     onUnload: () => {
-        showToast("👋 Plugin unloaded", 0);
-        logger.log("Plugin unloaded");
+        // Clean up all patches
+        unpatches.forEach(unpatch => {
+            try {
+                unpatch()
+            } catch (e) {
+                console.error("Unpatch error:", e)
+            }
+        })
+        
+        unpatches.length = 0 // Clear array
+        showToast("👋 Plugin unloaded", 0)
     },
-
-    settings: Settings,
-}
-
-// Helper function to enhance children with custom text
-function enhanceChildren(children) {
-    if (!children) return children;
-    
-    const customText = {
-        type: "Text",
-        props: {
-            children: "📱 In Voice Chat",
-            size: 12,
-            color: "#00b0f4",
-            style: { marginBottom: 8, fontWeight: "600" }
-        }
-    };
-    
-    if (Array.isArray(children)) {
-        return [customText, ...children];
-    } else {
-        return [customText, children];
-    }
 }
