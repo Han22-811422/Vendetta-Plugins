@@ -8,6 +8,8 @@ export default {
         logger.log("Plugin loaded!");
         
         try {
+            await new Promise(x => setTimeout(x, 10000));
+
             // Find the VoicePanelCard component
             const VoicePanelCard = findByName("VoicePanelCard", false);
             
