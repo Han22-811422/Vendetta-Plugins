@@ -1,6 +1,6 @@
 import { logger } from "@vendetta";
 import { patchAsync } from "@vendetta/patcher";
-import { findByName } from "@vendetta/metro";
+import { findByPropsLazy } from "@revenge-mod/metro";
 import Settings from "./Settings";
 
 export default {
@@ -11,7 +11,7 @@ export default {
             await new Promise(x => setTimeout(x, 10000));
 
             // Find the VoicePanelCard component
-            const VoicePanelCard = findByName("VoicePanelCard", false);
+            const VoicePanelCard = findByPropsLazy("VoicePanelCard", false);
             
             if (!VoicePanelCard) {
                 logger.error("Could not find VoicePanelCard");
