@@ -1,52 +1,60 @@
 import { logger } from "@vendetta";
 import { showToast } from "@vendetta/ui/toasts";
 import { patchAsyncComponent } from "@vendetta/ui/components";
-import { findByDisplayName } from "@vendetta/metro";
+import { findByDisplayName, findByName } from "@vendetta/metro";
 import Settings from "./Settings";
+
+const PLUGIN_VERSION = "1.2";
 
 export default {
     onLoad: async () => {
-        showToast("Voice Panel plugin loading", 0);
+        showToast(`🔧 Voice Panel Plugin v${PLUGIN_VERSION}`, 0);
+        logger.log(`Voice Panel Plugin v${PLUGIN_VERSION} loaded`);
         
         try {
             // Wait 10 seconds for Discord to fully load
-            showToast("Waiting 10 seconds for Discord to load...", 1);
+            showToast("⏳ Waiting 10 seconds for Discord...", 1);
             await new Promise(resolve => setTimeout(resolve, 10000));
             
-            // Find VoicePanelCard component
-            const VoicePanelCard = findByDisplayName("VoicePanelCard");
+            showToast("🔍 Searching for component...", 1);
+            logger.log("Searching for voice panel components");
             
-            if (!VoicePanelCard) {
-                showToast("Could not find VoicePanelCard", 2);
+            // Try to find VoicePanelCard
+            let targetComponent = findByDisplayName("VoicePanelCard") || findByName("VoicePanelCard");
+            let componentName = "VoicePanelCard";
+            
+            // Fallback to ParticipantCard
+            if (!targetComponent) {
+                targetComponent = findByDisplayName("ParticipantCard") || findByName("ParticipantCard");
+                componentName = "ParticipantCard";
+            }
+            
+            // Fallback to TransitionGroup or other wrapper
+            if (!targetComponent) {
+                targetComponent = findByDisplayName("TransitionGroup") || findByName("TransitionGroup");
+                componentName = "TransitionGroup";
+            }
+            
+            if (!targetComponent) {
+                showToast("❌ Could not find target component", 2);
+                logger.error("Target component not found");
                 return;
             }
 
-            showToast("Found VoicePanelCard, patching...", 0);
+            showToast(`✅ Found ${componentName}! Patching...`, 1);
+            logger.log(`Found ${componentName}, applying patch`);
 
-            // Patch the component
-            patchAsyncComponent(
-                VoicePanelCard,
+            // Patch the component with deep traversal
+            await patchAsyncComponent(
+                targetComponent,
                 (Component) => {
                     return (props) => {
                         const original = Component(props);
                         
-                        // Inject text above existing content
+                        // Recursively patch children to add text
                         if (original?.props?.children) {
-                            const customContent = {
-                                type: "Text",
-                                props: {
-                                    children: "In Voice Chat",
-                                    size: 12,
-                                    color: "white",
-                                    style: { marginBottom: 8 }
-                                }
-                            };
-                            
-                            const currentChildren = Array.isArray(original.props.children)
-                                ? original.props.children
-                                : [original.props.children];
-                            
-                            original.props.children = [customContent, ...currentChildren];
+                            const enhancedChildren = enhanceChildren(original.props.children);
+                            original.props.children = enhancedChildren;
                         }
                         
                         return original;
@@ -54,15 +62,39 @@ export default {
                 }
             );
 
-            showToast("VoicePanelCard patched!", 1);
+            showToast("✨ Patch applied successfully!", 1);
+            logger.log("Patch applied successfully");
         } catch (error) {
-            showToast("Patch error: " + error, 2);
+            showToast("❌ Error: " + error?.toString(), 2);
+            logger.error("Patch error:", error);
         }
     },
 
     onUnload: () => {
-        showToast("Plugin unloaded", 0);
+        showToast("👋 Plugin unloaded", 0);
+        logger.log("Plugin unloaded");
     },
 
     settings: Settings,
+}
+
+// Helper function to enhance children with custom text
+function enhanceChildren(children) {
+    if (!children) return children;
+    
+    const customText = {
+        type: "Text",
+        props: {
+            children: "📱 In Voice Chat",
+            size: 12,
+            color: "#00b0f4",
+            style: { marginBottom: 8, fontWeight: "600" }
+        }
+    };
+    
+    if (Array.isArray(children)) {
+        return [customText, ...children];
+    } else {
+        return [customText, children];
+    }
 }
