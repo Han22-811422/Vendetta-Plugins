@@ -1,54 +1,85 @@
-import { patcher } from "@vendetta"
-import { findByName, findByProps } from "@vendetta/metro"
-import { showToast } from "@vendetta/ui/toasts"
+import { patcher } from '@revenge-mod/api'
+import { findByName, findByPropsLazy } from '@revenge-mod/metro'
 
-const PLUGIN_VERSION = "3.1"
-const unpatches = []
+const PLUGIN_VERSION = "3.2"
+let unpatches: UnpatchFunction[] = []
 
 export default {
     onLoad: async () => {
-        showToast(`🔧 Voice Panel Plugin v${PLUGIN_VERSION}`, 0)
         console.log(`[VoicePanel] Loading v${PLUGIN_VERSION}`)
         
         try {
             // Wait 10 seconds for Discord to fully load
-            showToast("⏳ Waiting 10 seconds...", 1)
+            console.log("[VoicePanel] Waiting 10 seconds...")
             await new Promise(resolve => setTimeout(resolve, 10000))
             
-            // Strategy 1: Try findByName
-            showToast("🔍 Searching for VoicePanelCard...", 1)
-            let component = findByName("VoicePanelCard")
-            let strategyUsed = "findByName"
+            // Strategy 1: Find by name
+            console.log("[VoicePanel] Searching for VoicePanelCard...")
+            let VoicePanelCard = findByName("VoicePanelCard")
             
-            if (!component) {
-                showToast("🔍 Trying findByProps...", 1)
+            if (!VoicePanelCard) {
+                console.log("[VoicePanel] Trying findByPropsLazy with participant...")
                 try {
-                    component = findByProps("participant")
-                    strategyUsed = "findByProps"
+                    VoicePanelCard = findByPropsLazy("participant")
                 } catch (e) {
-                    console.log("[VoicePanel] findByProps failed:", e)
+                    console.error("[VoicePanel] findByPropsLazy failed:", e)
                 }
             }
             
-            if (!component) {
-                showToast("❌ Could not find VoicePanelCard", 2)
-                console.log("[VoicePanel] All strategies failed")
+            if (!VoicePanelCard) {
+                console.error("[VoicePanel] Could not find VoicePanelCard")
                 return
             }
 
-            showToast(`✅ Found using ${strategyUsed}!`, 1)
-            console.log(`[VoicePanel] Found component using ${strategyUsed}:`, component)
+            console.log("[VoicePanel] Found VoicePanelCard!", VoicePanelCard)
 
-            // Patch the component
-            await patchComponent(component)
+            // Patch the default export
+            if (VoicePanelCard.default || typeof VoicePanelCard === 'function') {
+                const target = VoicePanelCard.default || VoicePanelCard
+                
+                const unpatch = patcher.instead(
+                    'default',
+                    VoicePanelCard,
+                    ([props], orig) => {
+                        console.log("[VoicePanel] Rendering with props:", props)
+                        
+                        const result = orig.apply(this, [props])
+                        
+                        if (result?.props?.children) {
+                            const customText = {
+                                type: 'Text',
+                                props: {
+                                    children: '📱 In Voice Chat',
+                                    size: 12,
+                                    color: '#00b0f4',
+                                    style: { marginBottom: 8 }
+                                }
+                            }
+                            
+                            const children = Array.isArray(result.props.children)
+                                ? result.props.children
+                                : [result.props.children]
+                            
+                            result.props.children = [customText, ...children]
+                        }
+                        
+                        return result
+                    }
+                )
+                
+                unpatches.push(unpatch)
+                console.log("[VoicePanel] Patched successfully!")
+            } else {
+                console.error("[VoicePanel] Component doesn't have default export")
+            }
             
         } catch (error) {
-            showToast("❌ Error: " + error?.toString(), 2)
             console.error("[VoicePanel] Plugin error:", error)
         }
     },
 
     onUnload: () => {
+        console.log("[VoicePanel] Unloading...")
         unpatches.forEach(unpatch => {
             try {
                 unpatch()
@@ -56,55 +87,7 @@ export default {
                 console.error("[VoicePanel] Unpatch error:", e)
             }
         })
-        unpatches.length = 0
-        showToast("👋 Plugin unloaded", 0)
+        unpatches = []
+        console.log("[VoicePanel] Unloaded")
     },
-}
-
-async function patchComponent(component) {
-    try {
-        console.log("[VoicePanel] Patching component...")
-        
-        // Patch using patcher.instead from @vendetta
-        const unpatch = patcher.instead(
-            "default",
-            component,
-            (args, originalFunc) => {
-                try {
-                    const result = originalFunc.apply(this, args)
-                    
-                    if (result?.props?.children) {
-                        const customText = {
-                            type: "Text",
-                            props: {
-                                children: "📱 In Voice Call",
-                                size: 12,
-                                color: "#00b0f4",
-                                style: { marginBottom: 8, fontWeight: "600" }
-                            }
-                        }
-                        
-                        const children = Array.isArray(result.props.children)
-                            ? result.props.children
-                            : [result.props.children]
-                        
-                        result.props.children = [customText, ...children]
-                    }
-                    
-                    return result
-                } catch (e) {
-                    console.error("[VoicePanel] Error in patch:", e)
-                    return originalFunc.apply(this, args)
-                }
-            }
-        )
-        
-        unpatches.push(unpatch)
-        showToast("✨ VoicePanelCard patched successfully!", 1)
-        console.log("[VoicePanel] Patch applied successfully")
-        
-    } catch (error) {
-        console.error("[VoicePanel] Patch error:", error)
-        showToast("❌ Patch failed: " + error?.toString(), 2)
-    }
 }
